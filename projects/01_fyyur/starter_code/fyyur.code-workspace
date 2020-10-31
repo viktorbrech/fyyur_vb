@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../../todoapp"
+		},
+		{
+			"path": "../../../../todoapp-crud-lists-solution"
+		}
+	],
+	"settings": {}
+}

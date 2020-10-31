@@ -13,6 +13,7 @@ from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
 from flask_migrate import Migrate
+from datetime import datetime
 
 #----------------------------------------------------------------------------#
 # App Config.
@@ -37,7 +38,7 @@ class Venue(db.Model):
     state = db.Column(db.String(120), nullable=False)
     address = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
+    genres = db.Column(db.ARRAY(db.String()))
     image_link = db.Column(db.String(500))
     website_link = db.Column(db.String(120))
     facebook_link = db.Column(db.String(120))
@@ -53,7 +54,7 @@ class Artist(db.Model):
     city = db.Column(db.String(120), nullable=False)
     state = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120), nullable=False)
+    genres = db.Column(db.ARRAY(db.String()), nullable=False)
     image_link = db.Column(db.String(500))
     website_link = db.Column(db.String(120))
     facebook_link = db.Column(db.String(120))
@@ -74,15 +75,35 @@ class Show(db.Model):
 #----------------------------------------------------------------------------#
 
 def format_datetime(value, format='medium'):
-  date = dateutil.parser.parse(value)
+  if isinstance(value, datetime):
+    date = value
+  else:
+    date = dateutil.parser.parse(value)
   if format == 'full':
       format="EEEE MMMM, d, y 'at' h:mma"
   elif format == 'medium':
       format="EE MM, dd, y h:mma"
-  return babel.dates.format_datetime(date, format)
-# print(format_datetime("2019-05-21T21:30:00.000Z"))
-# print(format_datetime("2019-06-15T23:00:00.000Z", format="full"))
+  return babel.dates.format_datetime(date, format, locale='en_US')
+
 app.jinja_env.filters['datetime'] = format_datetime
+
+#----------------------------------------------------------------------------#
+# Random Utility Functions.
+#----------------------------------------------------------------------------#
+
+def upcoming_shows(objectID, object="venue"):
+  if object=="venue":
+    all_shows = Show.query.filter_by(venue_id = objectID).all()
+  elif object=="artist":
+    all_shows = Show.query.filter_by(artist_id = objectID).all()
+  else:
+    raise ValueError("object must be venue or artist")
+  current_time = datetime.now()
+  counter = 0
+  for show in all_shows:
+    if show.time > current_time:
+      counter += 1
+  return counter
 
 #----------------------------------------------------------------------------#
 # Controllers.
@@ -121,6 +142,31 @@ def venues():
       "num_upcoming_shows": 0,
     }]
   }]
+
+  venues_by_location = {}
+
+  venues = Venue.query.all()
+  for venue in venues:
+    venue_dict = {}
+    venue_dict["id"] = venue.id
+    venue_dict["name"] = venue.name
+    venue_dict["num_upcoming_shows"] = upcoming_shows(venue.id)
+    # add venue to the location dictionary of venues
+    location = (venue.city, venue.state)
+    try:
+      venues_by_location[location].append(venue_dict)
+    except KeyError:
+      venues_by_location[location] = [venue_dict]
+  
+  data = []
+
+  for location in venues_by_location:
+    loc_dict = {}
+    loc_dict["city"] = location[0]
+    loc_dict["state"] = location[1]
+    loc_dict["venues"] = venues_by_location[location]
+    data.append(loc_dict)
+
   return render_template('pages/venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
@@ -136,7 +182,25 @@ def search_venues():
       "num_upcoming_shows": 0,
     }]
   }
-  return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
+
+  search_term=request.form.get('search_term', '')
+
+  all_venues = Venue.query.all()
+  matches = []
+  for venue in all_venues:
+    if search_term.upper() in venue.name.upper():
+      match = {
+        "id": venue.id,
+        "name": venue.name,
+        "num_upcoming_shows": upcoming_shows(venue.id)
+      }
+      matches.append(match)
+  
+  response = {}
+  response["count"] = len(matches)
+  response["data"] = matches
+
+  return render_template('pages/search_venues.html', results=response, search_term=search_term)
 
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
@@ -219,7 +283,47 @@ def show_venue(venue_id):
     "past_shows_count": 1,
     "upcoming_shows_count": 1,
   }
-  data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
+  #data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
+
+  venue = Venue.query.get(venue_id)
+  data = {
+    "id": venue.id,
+    "name": venue.name,
+    "genres": venue.genres,
+    "address": venue.address,
+    "city": venue.city,
+    "state": venue.state,
+    "phone": venue.phone,
+    "website": venue.website_link,
+    "facebook_link": venue.facebook_link,
+    "seeking_talent": venue.seeking_talent,
+    "image_link": venue.image_link
+  }
+  if venue.seeking_talent == True:
+    data["seeking_description"] = venue.seeking_talent_message
+  
+  # bucket associated shows
+  past_shows = []
+  upcoming_shows = []
+  current_time = datetime.now()
+  all_shows = Show.query.filter_by(venue_id = venue_id).all()
+  for show in all_shows:
+    show_dict = {
+      "artist_id": show.artist.id,
+      "artist_name": show.artist.name,
+      "artist_image_link": show.artist.image_link,
+      "start_time": show.time
+    }
+    if show.time > current_time:
+      upcoming_shows.append(show_dict)
+    else:
+      past_shows.append(show_dict)
+  
+  data["past_shows"] = past_shows
+  data["upcoming_shows"] = upcoming_shows
+  data["past_shows_count"] = len(past_shows)
+  data["upcoming_shows_count"] = len(upcoming_shows)
+
   return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
@@ -252,6 +356,7 @@ def create_venue_submission():
         field_values["seeking_talent"] = True
       # try and persist the form submission in the database
       venue = Venue(**field_values)
+      ##test_other = field_value["genres"]
       db.session.add(venue)
       db.session.commit()
       flash('Venue ' + form.data["name"] + ' was successfully listed!')
@@ -287,6 +392,12 @@ def artists():
     "id": 6,
     "name": "The Wild Sax Band",
   }]
+
+  all_artists = Artist.query.all()
+  data = []
+  for artist in all_artists:
+    data.append({"id": artist.id, "name": artist.name})
+
   return render_template('pages/artists.html', artists=data)
 
 @app.route('/artists/search', methods=['POST'])
@@ -302,7 +413,25 @@ def search_artists():
       "num_upcoming_shows": 0,
     }]
   }
-  return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
+
+  search_term=request.form.get('search_term', '')
+
+  all_artists = Artist.query.all()
+  matches = []
+  for artist in all_artists:
+    if search_term.upper() in artist.name.upper():
+      match = {
+        "id": artist.id,
+        "name": artist.name,
+        "num_upcoming_shows": upcoming_shows(artist.id, object="artist")
+      }
+      matches.append(match)
+  
+  response = {}
+  response["count"] = len(matches)
+  response["data"] = matches
+
+  return render_template('pages/search_artists.html', results=response, search_term=search_term)
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
@@ -379,7 +508,46 @@ def show_artist(artist_id):
     "past_shows_count": 0,
     "upcoming_shows_count": 3,
   }
-  data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
+  #data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
+
+  artist = Artist.query.get(artist_id)
+  data = {
+    "id": artist.id,
+    "name": artist.name,
+    "genres": artist.genres,
+    "city": artist.city,
+    "state": artist.state,
+    "phone": artist.phone,
+    "website": artist.website_link,
+    "facebook_link": artist.facebook_link,
+    "seeking_venue": artist.seeking_venue,
+    "image_link": artist.image_link
+  }
+  if artist.seeking_venue == True:
+    data["seeking_description"] = artist.seeking_venue_message
+  
+  # bucket associated shows
+  past_shows = []
+  upcoming_shows = []
+  current_time = datetime.now()
+  all_shows = Show.query.filter_by(artist_id = artist_id).all()
+  for show in all_shows:
+    show_dict = {
+      "venue_id": show.venue.id,
+      "venue_name": show.venue.name,
+      "venue_image_link": show.venue.image_link,
+      "start_time": show.time
+    }
+    if show.time > current_time:
+      upcoming_shows.append(show_dict)
+    else:
+      past_shows.append(show_dict)
+  
+  data["past_shows"] = past_shows
+  data["upcoming_shows"] = upcoming_shows
+  data["past_shows_count"] = len(past_shows)
+  data["upcoming_shows_count"] = len(upcoming_shows)
+
   return render_template('pages/show_artist.html', artist=data)
 
 #  Update
@@ -521,6 +689,19 @@ def shows():
     "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
     "start_time": "2035-04-15T20:00:00.000Z"
   }]
+
+  all_shows = Show.query.all()
+  data = []
+  for show in all_shows:
+    show_dict = {
+      "venue_id": show.venue_id,
+      "venue_name": show.venue.name,
+      "artist_id": show.artist_id,
+      "artist_name": show.artist.name,
+      "artist_image_link": show.artist.image_link,
+      "start_time": show.time
+    }
+    data.append(show_dict)
   return render_template('pages/shows.html', shows=data)
 
 @app.route('/shows/create')

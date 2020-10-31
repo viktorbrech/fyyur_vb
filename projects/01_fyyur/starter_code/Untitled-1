@@ -1,0 +1,14 @@
+
+
+1. email sending frequency cap
+--> pretty heavy-handed instrument
+
+--> combine it with the following:
+* use "Last marketing email send date" and "Sends since last engagement" (in lists or workflows)
+* use auto-unenrollment in workflow to prevent concurrent nurturing workflows
+
+2. naming conventions
+hierarchy of instruments:
+1. content partitioning for hard separation "permission"
+2. folders for hard separation ("visibility")
+3. naming conventions for tag-based searches 
