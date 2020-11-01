@@ -5,7 +5,17 @@
 import json
 import dateutil.parser
 import babel
-from flask import Flask, render_template, request, Response, flash, redirect, url_for, jsonify, abort
+from flask import (
+  Flask,
+  render_template,
+  request,
+  Response,
+  flash,
+  redirect,
+  url_for,
+  jsonify,
+  abort
+)
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 import logging
@@ -19,55 +29,11 @@ from datetime import datetime
 # App Config.
 #----------------------------------------------------------------------------#
 
-app = Flask(__name__)
-moment = Moment(app)
+from models import app, db, Venue, Artist, Show
+
 app.config.from_object('config')
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
-
-#----------------------------------------------------------------------------#
-# Models.
-#----------------------------------------------------------------------------#
-
-class Venue(db.Model):
-    __tablename__ = 'Venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    city = db.Column(db.String(120), nullable=False)
-    state = db.Column(db.String(120), nullable=False)
-    address = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.ARRAY(db.String()))
-    image_link = db.Column(db.String(500))
-    website_link = db.Column(db.String(120))
-    facebook_link = db.Column(db.String(120))
-    seeking_talent = db.Column(db.Boolean, default=False)
-    seeking_talent_message = db.Column(db.String(120))
-    shows = db.relationship("Show", backref="venue")
-
-class Artist(db.Model):
-    __tablename__ = 'Artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    city = db.Column(db.String(120), nullable=False)
-    state = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.ARRAY(db.String()), nullable=False)
-    image_link = db.Column(db.String(500))
-    website_link = db.Column(db.String(120))
-    facebook_link = db.Column(db.String(120))
-    seeking_venue = db.Column(db.Boolean, default=False)
-    seeking_venue_message = db.Column(db.String(120))
-    shows = db.relationship("Show", backref="artist")
-
-class Show(db.Model):
-    __tablename__ = "Show"
-    id = db.Column(db.Integer, primary_key=True)
-    time = db.Column(db.DateTime, nullable=False)
-    venue_id = db.Column(db.Integer, db.ForeignKey("Venue.id"), nullable=False)
-    artist_id = db.Column(db.Integer, db.ForeignKey("Artist.id"), nullable=False)
+moment = Moment(app)
+db.init_app(app)
 
 
 #----------------------------------------------------------------------------#
@@ -262,8 +228,20 @@ def create_venue_submission():
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
-  # not used in this application
-  return None
+  error = False
+  try:
+    venue = Venue.query.get(venue_id)
+    db.session.delete(venue)
+    db.session.commit()
+  except():
+    db.session.rollback()
+    error = True
+  finally:
+    db.session.close()
+  if error:
+    abort(500)
+  else:
+    return jsonify({'success': True})
 
 #  Artists
 #  ----------------------------------------------------------------
@@ -343,23 +321,78 @@ def show_artist(artist_id):
 #  ----------------------------------------------------------------
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
-  # not implemented / not used in this application
-  return render_template('pages/home.html')
+  artist = Artist.query.get(artist_id)
+  form = ArtistForm(obj=artist)
+  return render_template('forms/edit_artist.html', form=form, artist=artist)
 
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
 def edit_artist_submission(artist_id):
-  # not implemented / not used in this application
-  return render_template('pages/home.html')
+  # TODO: take values from the form submitted, and update existing
+  # artist record with ID <artist_id> using the new attributes
+  form = ArtistForm()
+  # surface form validation errrors
+  if not form.validate():
+    flash("Please correct the following errors: " + str(form.errors))
+    return redirect(url_for('edit_artist_submission', artist_id=artist_id))
+  else:
+    # prepare and execute db write
+    try:
+      # clean up and augment field values
+      field_values = dict(form.data)
+      del field_values["csrf_token"]
+      if field_values["seeking_venue_message"] == "":
+        field_values["seeking_venue"] = False
+      else:
+        field_values["seeking_venue"] = True
+      # try and persist the updated artist date in the database
+      artist = Artist.query.get(artist_id)
+      for key, value in field_values.items():
+        setattr(artist, key, value)
+      db.session.commit()
+      flash('Artist with ID' + str(artist_id) + ' was successfully updated!')
+    except():
+      db.session.rollback()
+      flash('An error occurred. Artist with ID' + str(artist_id) + ' could not be updated.')
+    finally:
+      db.session.close()
+    return redirect(url_for('show_artist', artist_id=artist_id))
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
-  # not implemented / not used in this application
-  return render_template('pages/home.html')
+  venue = Venue.query.get(venue_id)
+  form = VenueForm(obj=venue)
+  return render_template('forms/edit_venue.html', form=form, venue=venue)
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
-  # not implemented / not used in this application
-  return render_template('pages/home.html')
+  form = VenueForm()
+  # surface form validation errrors
+  if not form.validate():
+    flash("Please correct the following errors: " + str(form.errors))
+    return redirect(url_for('edit_venue_submission', venue_id=venue_id))
+  else:
+    # prepare and execute db write
+    try:
+      # clean up and augment field values
+      field_values = dict(form.data)
+      del field_values["csrf_token"]
+      if field_values["seeking_talent_message"] == "":
+        field_values["seeking_talent"] = False
+      else:
+        field_values["seeking_talent"] = True
+      # try and persist the updated venued data in the database
+      venue = Venue.query.get(venue_id)
+      for key, value in field_values.items():
+        setattr(venue, key, value)
+      db.session.commit()
+      flash('Venue with ID' + str(venue_id) + ' was successfully updated!')
+    except():
+      db.session.rollback()
+      flash('Venue with ID' + str(venue_id) + ' could not be updated.')
+    finally:
+      db.session.close()
+    return redirect(url_for('show_venue', venue_id=venue_id))
+
 
 #  Create Artist
 #  ----------------------------------------------------------------
