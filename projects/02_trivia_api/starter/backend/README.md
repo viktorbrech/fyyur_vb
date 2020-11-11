@@ -89,6 +89,96 @@ GET '/categories'
 
 ```
 
+## API Reference
+
+#### Endpoints
+```
+GET "/categories"
+GET "/questions"
+DELETE "/questions/{question_id}"
+POST "/questions"
+POST "/questions/search"
+GET "/categories/{category_id}/questions"
+POST "/quizzes"
+```
+
+
+#### GET "/categories"
+- General:
+    - If provided, updates the rating of the specified book. Returns the success value and id of the modified book. 
+- `curl http://127.0.0.1:5000/books/15 -X PATCH -H "Content-Type: application/json" -d '{"rating":"1"}'`
+```
+{
+  "id": 15,
+  "success": true
+}
+```
+
+#### GET "/questions"
+- General:
+    - If provided, updates the rating of the specified book. Returns the success value and id of the modified book. 
+- `curl http://127.0.0.1:5000/books/15 -X PATCH -H "Content-Type: application/json" -d '{"rating":"1"}'`
+```
+{
+  "id": 15,
+  "success": true
+}
+```
+
+#### DELETE "/questions/{question_id}"
+- General:
+    - If provided, updates the rating of the specified book. Returns the success value and id of the modified book. 
+- `curl http://127.0.0.1:5000/books/15 -X PATCH -H "Content-Type: application/json" -d '{"rating":"1"}'`
+```
+{
+  "id": 15,
+  "success": true
+}
+```
+
+#### POST "/questions"
+- General:
+    - If provided, updates the rating of the specified book. Returns the success value and id of the modified book. 
+- `curl http://127.0.0.1:5000/books/15 -X PATCH -H "Content-Type: application/json" -d '{"rating":"1"}'`
+```
+{
+  "id": 15,
+  "success": true
+}
+```
+
+#### POST "/questions/search"
+- General:
+    - If provided, updates the rating of the specified book. Returns the success value and id of the modified book. 
+- `curl http://127.0.0.1:5000/books/15 -X PATCH -H "Content-Type: application/json" -d '{"rating":"1"}'`
+```
+{
+  "id": 15,
+  "success": true
+}
+```
+
+#### GET "/categories/{category_id}/questions"
+- General:
+    - If provided, updates the rating of the specified book. Returns the success value and id of the modified book. 
+- `curl http://127.0.0.1:5000/books/15 -X PATCH -H "Content-Type: application/json" -d '{"rating":"1"}'`
+```
+{
+  "id": 15,
+  "success": true
+}
+```
+
+#### POST "/quizzes"
+- General:
+    - If provided, updates the rating of the specified book. Returns the success value and id of the modified book. 
+- `curl http://127.0.0.1:5000/books/15 -X PATCH -H "Content-Type: application/json" -d '{"rating":"1"}'`
+```
+{
+  "id": 15,
+  "success": true
+}
+```
 
 ## Testing
 To run the tests, run
