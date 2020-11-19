@@ -52,8 +52,9 @@ def create_app(test_config=None):
       all_questions = Question.query.order_by(Question.id.asc()).all()
       question_slice = all_questions[(page-1)*QUESTIONS_PER_PAGE:page*QUESTIONS_PER_PAGE]
       questions = [question.format() for question in question_slice]
+      assert len(questions) > 0
     except:
-      abort(500)
+      abort(404)
     return jsonify({"questions": questions, "total_questions": len(all_questions), "categories": get_category_map(), "current_category": None})
 
   @app.route('/questions/<int:question_id>', methods=['DELETE'])
@@ -88,7 +89,7 @@ def create_app(test_config=None):
   def search_questions():
     try:
       data = request.get_json()
-      assert len(data["searchTerm"]) > 0
+      assert data["searchTerm"] != ""
     except:
       abort(422)
     try:
@@ -104,6 +105,11 @@ def create_app(test_config=None):
   @app.route('/categories/<int:category_id>/questions', methods=['GET'])
   def questions_by_category(category_id):
     try:
+      category_match = Category.query.filter(Category.id == category_id).all()
+      assert len(category_match) != 0
+    except:
+      abort(404)
+    try:
       questions_in_category = Question.query.filter(Question.category == str(category_id)).all()
       questions_formatted = [question.format() for question in questions_in_category]
     except:
@@ -113,6 +119,7 @@ def create_app(test_config=None):
   @app.route('/quizzes', methods=['POST'])
   def quiz_question():
     try:
+      # collect remaining candidate questions in question_fresh
       data = request.get_json()
       past_questions = [str(q) for q in data["previous_questions"]]
       if data["quiz_category"]["id"] == 0:
@@ -128,7 +135,7 @@ def create_app(test_config=None):
       else:
         next_question = random.choice(questions_fresh)
     except:
-      abort(404)
+      abort(422)
     return jsonify({"previousQuestions": data["previous_questions"], "question": next_question})
   
   @app.errorhandler(404)
