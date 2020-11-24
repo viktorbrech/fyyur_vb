@@ -89,17 +89,18 @@ def create_app(test_config=None):
   def search_questions():
     try:
       data = request.get_json()
-      assert data["searchTerm"] != ""
+      searchTerm = data.get("searchTerm", "")
+      assert searchTerm != ""
     except:
       abort(422)
     try:
       all_questions = Question.query.all()
       questions = []
       for question in all_questions:
-        if data["searchTerm"].upper() in question.question.upper():
+        if searchTerm.upper() in question.question.upper():
           questions.append(question.format())
     except:
-      abort(500)
+      abort(422)
     return jsonify({"questions": questions, "total_questions": len(questions), "current_category": None})
 
   @app.route('/categories/<int:category_id>/questions', methods=['GET'])
