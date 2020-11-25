@@ -12,22 +12,20 @@ setup_db(app)
 CORS(app)
 
 '''
-@TODO uncomment the following line to initialize the datbase
 !! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
 !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
 '''
-# db_drop_and_create_all()
+db_drop_and_create_all()
 
 ## ROUTES
-'''
-@TODO implement endpoint
-    GET /drinks
-        it should be a public endpoint
-        it should contain only the drink.short() data representation
-    returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
-        or appropriate status code indicating reason for failure
-'''
 
+@app.route('/drinks')
+def get_drinks():
+    all_drinks = Drink.query.all()
+    drinks = []
+    for drink in all_drinks:
+        drinks.append(drink.short())
+    return jsonify({"success": True, "drinks": drinks})
 
 '''
 @TODO implement endpoint
@@ -37,7 +35,10 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
-
+@app.route('/drinks-detail')
+@requires_auth(permission="get:drinks-detail")
+def drinks_detail(payload):
+  return jsonify({"success": True})
 
 '''
 @TODO implement endpoint
@@ -48,7 +49,10 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
         or appropriate status code indicating reason for failure
 '''
-
+@app.route('/drinks', methods=['POST'])
+@requires_auth(permission="post:drinks")
+def post_drinks(payload):
+  return jsonify({"success": True})
 
 '''
 @TODO implement endpoint
@@ -61,7 +65,10 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
         or appropriate status code indicating reason for failure
 '''
-
+@app.route('/drinks/<int:drink_id>', methods=['PATCH'])
+@requires_auth(permission="patch:drinks")
+def patch_drinks(payload, drink_id):
+  return jsonify({"success": True})
 
 '''
 @TODO implement endpoint
@@ -73,12 +80,13 @@ CORS(app)
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
-
+@app.route('/drinks/<int:drink_id>', methods=['DELETE'])
+@requires_auth(permission="delete:drinks")
+def delete_drinks(payload, drink_id):
+  return jsonify({"success": True})
 
 ## Error Handling
-'''
-Example error handling for unprocessable entity
-'''
+
 @app.errorhandler(422)
 def unprocessable(error):
     return jsonify({
@@ -87,24 +95,18 @@ def unprocessable(error):
                     "message": "unprocessable"
                     }), 422
 
-'''
-@TODO implement error handlers using the @app.errorhandler(error) decorator
-    each error handler should return (with approprate messages):
-             jsonify({
+@app.errorhandler(404)
+def unprocessable(error):
+    return  jsonify({
                     "success": False, 
                     "error": 404,
                     "message": "resource not found"
                     }), 404
 
-'''
-
-'''
-@TODO implement error handler for 404
-    error handler should conform to general task above 
-'''
-
-
-'''
-@TODO implement error handler for AuthError
-    error handler should conform to general task above 
-'''
+@app.errorhandler(AuthError)
+def auth_error(error):
+    return jsonify({
+                    "success": False, 
+                    "error": error.status_code,
+                    "message": error.error
+                    }), error.status_code
