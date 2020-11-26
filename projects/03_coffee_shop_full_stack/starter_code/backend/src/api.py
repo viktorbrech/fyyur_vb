@@ -24,69 +24,66 @@ def get_drinks():
     all_drinks = Drink.query.all()
     drinks = []
     for drink in all_drinks:
+        print("lol")
         drinks.append(drink.short())
+    print("lol")
     return jsonify({"success": True, "drinks": drinks})
 
-'''
-@TODO implement endpoint
-    GET /drinks-detail
-        it should require the 'get:drinks-detail' permission
-        it should contain the drink.long() data representation
-    returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
-        or appropriate status code indicating reason for failure
-'''
 @app.route('/drinks-detail')
 @requires_auth(permission="get:drinks-detail")
 def drinks_detail(payload):
-  return jsonify({"success": True})
+    all_drinks = Drink.query.all()
+    drinks = []
+    for drink in all_drinks:
+        drinks.append(drink.long())
+    return jsonify({"success": True, "drinks": drinks})
 
-'''
-@TODO implement endpoint
-    POST /drinks
-        it should create a new row in the drinks table
-        it should require the 'post:drinks' permission
-        it should contain the drink.long() data representation
-    returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
-        or appropriate status code indicating reason for failure
-'''
 @app.route('/drinks', methods=['POST'])
 @requires_auth(permission="post:drinks")
 def post_drinks(payload):
-  return jsonify({"success": True})
+    data = request.get_json()
+    if isinstance(data["recipe"], list):
+        ingredients_list = json.dumps(data["recipe"])
+    else:
+        ingredients_list = json.dumps([data["recipe"]])
+    drink_name = data["title"]
+    new_drink = Drink(
+        title=drink_name,
+        recipe=ingredients_list)
+    new_drink.insert()
+    return  jsonify({'success': True, 'drinks': [new_drink.long()]})
 
-'''
-@TODO implement endpoint
-    PATCH /drinks/<id>
-        where <id> is the existing model id
-        it should respond with a 404 error if <id> is not found
-        it should update the corresponding row for <id>
-        it should require the 'patch:drinks' permission
-        it should contain the drink.long() data representation
-    returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
-        or appropriate status code indicating reason for failure
-'''
+
 @app.route('/drinks/<int:drink_id>', methods=['PATCH'])
 @requires_auth(permission="patch:drinks")
 def patch_drinks(payload, drink_id):
-  return jsonify({"success": True})
+    try:
+        data = request.get_json()
+        drink = Drink.query.get(drink_id)
+    except:
+        abort(422)
+    if "title" in data:
+        drink.title = data["title"]
+    if "recipe" in data:
+        if isinstance(data["recipe"], list):
+            drink.recipe = json.dumps(data["recipe"])
+        else:
+            drink.recipe = json.dumps([data["recipe"]])
+    drink.update()
+    return  jsonify({'success': True, 'drinks': [drink.long()]})
 
-'''
-@TODO implement endpoint
-    DELETE /drinks/<id>
-        where <id> is the existing model id
-        it should respond with a 404 error if <id> is not found
-        it should delete the corresponding row for <id>
-        it should require the 'delete:drinks' permission
-    returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
-        or appropriate status code indicating reason for failure
-'''
+
 @app.route('/drinks/<int:drink_id>', methods=['DELETE'])
 @requires_auth(permission="delete:drinks")
 def delete_drinks(payload, drink_id):
-  return jsonify({"success": True})
+    try:
+        drink = Drink.query.get(drink_id)
+    except:
+        abort(422)
+    drink.delete()
+    return  jsonify({'success': True, 'delete': drink_id})
 
 ## Error Handling
-
 @app.errorhandler(422)
 def unprocessable(error):
     return jsonify({
@@ -96,7 +93,7 @@ def unprocessable(error):
                     }), 422
 
 @app.errorhandler(404)
-def unprocessable(error):
+def not_found(error):
     return  jsonify({
                     "success": False, 
                     "error": 404,
