@@ -9,18 +9,21 @@ AUTH0_DOMAIN = 'vbrech.eu.auth0.com'
 ALGORITHMS = ['RS256']
 API_AUDIENCE = 'coffee_api'
 
-## AuthError Exception
+# AuthError Exception
+
 '''
 AuthError Exception
 A standardized way to communicate auth failure modes
 '''
+
+
 class AuthError(Exception):
     def __init__(self, error, status_code):
         self.error = error
         self.status_code = status_code
 
 
-## Auth Header
+# Auth Header
 
 # the following function is taken from the provided "BasicFlaskAuth" app
 def get_token_auth_header():
@@ -72,7 +75,6 @@ def check_permissions(permission, payload):
 
 
 # the following function is taken from the provided "BasicFlaskAuth" app
-# !!NOTE urlopen has a common certificate error described here: https://stackoverflow.com/questions/50236117/scraping-ssl-certificate-verify-failed-error-for-http-en-wikipedia-org
 def verify_decode_jwt(token):
     jsonurl = urlopen(f'https://{AUTH0_DOMAIN}/.well-known/jwks.json')
     jwks = json.loads(jsonurl.read())
@@ -113,7 +115,8 @@ def verify_decode_jwt(token):
         except jwt.JWTClaimsError:
             raise AuthError({
                 'code': 'invalid_claims',
-                'description': 'Incorrect claims. Please, check the audience and issuer.'
+                "description": ("Incorrect claims."
+                                "Please, check the audience and issuer.")
             }, 401)
         except Exception:
             raise AuthError({

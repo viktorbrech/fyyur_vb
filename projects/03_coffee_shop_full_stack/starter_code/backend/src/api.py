@@ -17,7 +17,8 @@ CORS(app)
 '''
 db_drop_and_create_all()
 
-## ROUTES
+# ROUTES
+
 
 @app.route('/drinks')
 def get_drinks():
@@ -29,6 +30,7 @@ def get_drinks():
     print("lol")
     return jsonify({"success": True, "drinks": drinks})
 
+
 @app.route('/drinks-detail')
 @requires_auth(permission="get:drinks-detail")
 def drinks_detail(payload):
@@ -37,6 +39,7 @@ def drinks_detail(payload):
     for drink in all_drinks:
         drinks.append(drink.long())
     return jsonify({"success": True, "drinks": drinks})
+
 
 @app.route('/drinks', methods=['POST'])
 @requires_auth(permission="post:drinks")
@@ -51,17 +54,14 @@ def post_drinks(payload):
         title=drink_name,
         recipe=ingredients_list)
     new_drink.insert()
-    return  jsonify({'success': True, 'drinks': [new_drink.long()]})
+    return jsonify({'success': True, 'drinks': [new_drink.long()]})
 
 
 @app.route('/drinks/<int:drink_id>', methods=['PATCH'])
 @requires_auth(permission="patch:drinks")
 def patch_drinks(payload, drink_id):
-    try:
-        data = request.get_json()
-        drink = Drink.query.get(drink_id)
-    except:
-        abort(422)
+    data = request.get_json()
+    drink = Drink.query.get(drink_id)
     if "title" in data:
         drink.title = data["title"]
     if "recipe" in data:
@@ -70,40 +70,52 @@ def patch_drinks(payload, drink_id):
         else:
             drink.recipe = json.dumps([data["recipe"]])
     drink.update()
-    return  jsonify({'success': True, 'drinks': [drink.long()]})
+    return jsonify({'success': True, 'drinks': [drink.long()]})
 
 
 @app.route('/drinks/<int:drink_id>', methods=['DELETE'])
 @requires_auth(permission="delete:drinks")
 def delete_drinks(payload, drink_id):
-    try:
-        drink = Drink.query.get(drink_id)
-    except:
-        abort(422)
-    drink.delete()
-    return  jsonify({'success': True, 'delete': drink_id})
+    drink = Drink.query.get(drink_id)
+    if drink:
+        drink.delete()
+    else:
+        abort(404)
+    return jsonify({'success': True, 'delete': drink_id})
 
-## Error Handling
+
+# Error Handling
 @app.errorhandler(422)
 def unprocessable(error):
     return jsonify({
-                    "success": False, 
+                    "success": False,
                     "error": 422,
                     "message": "unprocessable"
                     }), 422
 
+
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({
+                    "success": False,
+                    "error": 400,
+                    "message": "unprocessable"
+                    }), 400
+
+
 @app.errorhandler(404)
 def not_found(error):
-    return  jsonify({
-                    "success": False, 
+    return jsonify({
+                    "success": False,
                     "error": 404,
                     "message": "resource not found"
                     }), 404
 
+
 @app.errorhandler(AuthError)
 def auth_error(error):
     return jsonify({
-                    "success": False, 
+                    "success": False,
                     "error": error.status_code,
                     "message": error.error
                     }), error.status_code
